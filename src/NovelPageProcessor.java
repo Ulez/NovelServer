@@ -52,7 +52,7 @@ public class NovelPageProcessor implements PageProcessor {
             page.setSkip(true);
         }
         // 部分三：从页面发现后续的url地址来抓取
-        page.addTargetRequests(page.getHtml().links().regex("http://www.23wx.com/map/\\d.html").all());
+//        page.addTargetRequests(page.getHtml().links().regex("http://www.23wx.com/map/\\d.html").all());
     }
 
     private void deliver(int number, String deltail) {
