@@ -1,10 +1,9 @@
+package Processor;
+
 import us.codecraft.webmagic.Page;
 import us.codecraft.webmagic.Site;
 import us.codecraft.webmagic.Spider;
 import us.codecraft.webmagic.processor.PageProcessor;
-
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * Created by lcy on 2016/11/22.
@@ -18,6 +17,16 @@ public class ChapterProcesser implements PageProcessor {
         String content = page.getHtml().regex("<dd id=.*>.*</dd>.*<div class=\"adhtml\">").toString();
         content=content.replaceAll("<dd id=\"contents\">|&nbsp;&nbsp;&nbsp;&nbsp;|<br />&nbsp;&nbsp;&nbsp;&nbsp;|<br />|</dd>|<div class=\"adhtml\">"," ");
         System.out.println(content);
+
+        String url=page.getUrl().toString();
+        System.out.println(url);
+        try {
+            if (FileUtil.writeTxtFile(content,url)){
+                System.out.println("保存章节成功，url="+url);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     @Override

@@ -6,7 +6,7 @@ import java.sql.*;
 public class JdbcDemo {
     public static void main(String[] args) {
 //        try {
-//          new BookDao().insertBook(4,"14525","www.baiud.com");
+//          new DAO.BookDao().insertBook(4,"14525","www.baiud.com");
 //        } catch (ClassNotFoundException e) {
 //            e.printStackTrace();
 //        } catch (SQLException e) {
@@ -17,7 +17,7 @@ public class JdbcDemo {
     }
 //    public static void main(String[] args) {
 //        try {
-//            Connection connection = MysqlTool.getmInstance().getConnection();
+//            Connection connection = DAO.MysqlTool.getmInstance().getConnection();
 //            Statement statement = connection.createStatement();
 //            // 查询city表中所有的数据
 //            try (ResultSet resultSet = statement.executeQuery("SELECT * FROM book")) {

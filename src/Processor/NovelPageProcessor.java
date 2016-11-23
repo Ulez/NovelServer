@@ -1,9 +1,10 @@
+package Processor;
+
 import us.codecraft.webmagic.Page;
 import us.codecraft.webmagic.Site;
 import us.codecraft.webmagic.Spider;
 import us.codecraft.webmagic.processor.PageProcessor;
 
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -32,27 +33,32 @@ public class NovelPageProcessor implements PageProcessor {
     public void process(Page page) {
         // 部分二：定义如何抽取页面信息，并保存下来
         //   <li><a href="http://www.23wx.com/book/62267" target="_blank">[下载]</a><a href="http://www.23wx.com/html/62/62267/" title="驭禽斋" target="_blank">驭禽斋</a></li>
-        page.putField("url", page.getUrl().toString());
-        System.out.println("************************************小说类型url**********************************=" + page.getUrl().toString());
+        Pattern p_novel_type = Pattern.compile("http://www.23wx.com/map/\\d*.html");
+        Matcher m = p_novel_type.matcher(page.getUrl().toString());
+        if (m.find()) {
+            page.putField("url", page.getUrl().toString());
+            System.out.println("************************************小说类型url**********************************=" + page.getUrl().toString());
 //        page.putField("name", page.getHtml().regex("<li><a href=\"http://www.23wx.com/book/.*[下载]</a>.*</a></li>").toString());
-        String origin_books = page.getHtml().regex("<li><a href=\"http://www.23wx.com/book/.*[下载]</a>.*</a></li>").toString();
-        Pattern pattern = Pattern.compile("<li>.*</li>");
-        Matcher matcher = pattern.matcher(origin_books);
-        List<String> list = new ArrayList<String>();
-        while (matcher.find()) {
-            list.add(matcher.group());
-        }
-        for (String deltail : list) {
-            i++;
+            String origin_books = page.getHtml().regex("<li><a href=\"http://www.23wx.com/book/.*[下载]</a>.*</a></li>").toString();
+            Pattern pattern = Pattern.compile("<li>.*</li>");
+            Matcher matcher = pattern.matcher(origin_books);
+            List<String> list = new ArrayList<String>();
+            while (matcher.find()) {
+                list.add(matcher.group());
+            }
+            for (String deltail : list) {
+                i++;
 //            System.out.println("第" + i + "本书：" + deltail);
-            deliver(i, deltail);
+                deliver(i, deltail);
+            }
+            if (page.getResultItems().get("name") == null) {
+                //skip this page
+                page.setSkip(true);
+            }
+            // 部分三：从页面发现后续的url地址来抓取
+            page.addTargetRequests(page.getHtml().links().regex("http://www.23wx.com/map/\\d.html").all());
+            return;
         }
-        if (page.getResultItems().get("name") == null) {
-            //skip this page
-            page.setSkip(true);
-        }
-        // 部分三：从页面发现后续的url地址来抓取
-//        page.addTargetRequests(page.getHtml().links().regex("http://www.23wx.com/map/\\d.html").all());
     }
 
     private void deliver(int number, String deltail) {
@@ -66,9 +72,9 @@ public class NovelPageProcessor implements PageProcessor {
         String name = "";
         if (m2.find())
             name = m2.group(1);
-        System.out.println("id="+number+",书名=" + name + ",url=" + url);
+        System.out.println("id=" + number + ",书名=" + name + ",url=" + url);
 //        try {
-//            new BookDao().insertBook(number,name,url);
+//            new DAO.BookDao().insertBook(number,name,url);
 //        } catch (ClassNotFoundException e) {
 //            e.printStackTrace();
 //        } catch (SQLException e) {
@@ -84,13 +90,9 @@ public class NovelPageProcessor implements PageProcessor {
     }
 
     public static void main(String[] args) {
-
         Spider.create(new NovelPageProcessor())
-                //从"https://github.com/code4craft"开始抓
-                .addUrl(urls[1])
-                //开启5个线程抓取
+                .addUrl(urls)
                 .thread(5)
-                //启动爬虫
                 .run();
     }
 }
