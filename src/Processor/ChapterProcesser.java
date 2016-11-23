@@ -14,19 +14,6 @@ public class ChapterProcesser implements PageProcessor {
 
     @Override
     public void process(Page page) {
-        String content = page.getHtml().regex("<dd id=.*>.*</dd>.*<div class=\"adhtml\">").toString();
-        content=content.replaceAll("<dd id=\"contents\">|&nbsp;&nbsp;&nbsp;&nbsp;|<br />&nbsp;&nbsp;&nbsp;&nbsp;|<br />|</dd>|<div class=\"adhtml\">"," ");
-        System.out.println(content);
-
-        String url=page.getUrl().toString();
-        System.out.println(url);
-        try {
-            if (FileUtil.writeTxtFile(content,url)){
-                System.out.println("保存章节成功，url="+url);
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
     }
 
     @Override

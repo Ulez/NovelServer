@@ -1,3 +1,4 @@
 .idea/
 out/
 NovelServer.iml
+web/WEB-INF/classes/

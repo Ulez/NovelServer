@@ -64,7 +64,7 @@ public class FileUtil {
 
     public static boolean writeTxtFile(String content, String url) throws Exception {
 
-        Pattern pattern = Pattern.compile("http://www.23wx.com/html/21/(\\d*)/(\\d*).html");
+        Pattern pattern = Pattern.compile("http://www.23wx.com/html/\\d*/(\\d*)/(\\d*).html");
         Matcher matcher = pattern.matcher(url);
         if (matcher.find()) {
             String book_id = matcher.group(1);
