@@ -74,6 +74,10 @@ public class FileUtil {
             if (!book.exists())
                 book.mkdir();
             File chapter = new File("E:\\Novels\\" + book_id + "\\" + chapter_id + ".txt");
+            if (chapter.exists()){
+                System.out.println("已经存在文件.");
+                return true;
+            }
             RandomAccessFile mm = null;
             boolean flag = false;
             FileOutputStream o = null;

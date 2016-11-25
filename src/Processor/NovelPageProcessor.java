@@ -1,10 +1,12 @@
 package Processor;
 
+import DAO.BookDao;
 import org.apache.http.util.TextUtils;
 import us.codecraft.webmagic.Page;
 import us.codecraft.webmagic.Site;
 import us.codecraft.webmagic.Spider;
 import us.codecraft.webmagic.processor.PageProcessor;
+import us.codecraft.webmagic.selector.Html;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -32,23 +34,70 @@ public class NovelPageProcessor implements PageProcessor {
 
     Pattern p_chapter_content = Pattern.compile("http://www.23wx.com/html/\\d*/\\d*/\\d*.html");  //"http://www.23wx.com/html/21/21741/21040339.html"
     Pattern p_chapters = Pattern.compile("http://www.23wx.com/html/\\d*/\\d*/"); //http://www.23wx.com/html/21/21741/
+    Pattern p_book_info = Pattern.compile("http://www.23wx.com/book/\\d*");     //http://www.23wx.com/book/61432
+
     @Override
     public void process(Page page) {
-        Matcher m_novel_type = p_novel_type.matcher(page.getUrl().toString());
-        Matcher m_chapter_content = p_chapter_content.matcher(page.getUrl().toString());
-        Matcher m_chapters = p_chapters.matcher(page.getUrl().toString());
-        if (m_chapter_content.find()){
+        String current_url = page.getUrl().toString();
+        Matcher m_novel_type = p_novel_type.matcher(current_url);
+        Matcher m_chapter_content = p_chapter_content.matcher(current_url);
+        Matcher m_chapters = p_chapters.matcher(current_url);
+        Matcher m_book_info = p_book_info.matcher(current_url);
+        if (m_chapter_content.find()) {
             getChapterContent(page);
-        }else if (m_chapters.find()){
+        } else if (m_chapters.find()) {
             getChaptersName(page);
-        }else if (m_novel_type.find()) {
+        } else if (m_novel_type.find()) {
             getBooks(page);
+        } else if (m_book_info.find()) {
+            getBookInfo(page);
         }
     }
+
+    String regex_book_info = "<tbody>(.*)</tbody>\\s*</table>\\s*<p></p>";//书本详细信息正则表达式；
+
+    private void getBookInfo(Page page) {
+        Pattern pattern = Pattern.compile("http://www.23wx.com/book/(\\d*)");
+        Matcher matcher = pattern.matcher(page.getUrl().toString());
+        String book_id = "";
+        if (matcher.find())
+            book_id = matcher.group(1);
+        String content = page.getHtml().regex(regex_book_info, 1).toString();
+//        System.out.println("书本详细信息:" + content + "book_id=" + book_id);
+        Pattern p = Pattern.compile("<th>(.*)</th>\\s*<td>&nbsp;(.*)</td>");
+        Matcher m = p.matcher(content);
+        String word_count = "";
+        int is_end = 0;
+        String author = "";
+        while (m.find()) {
+            if ("全文长度".equals(m.group(1)))
+                word_count = m.group(2);
+            else if ("文章作者".equals(m.group(1)))
+                author = m.group(2);
+            else if ("文章状态".equals(m.group(1)))
+                is_end = "已完成".equals(m.group(2)) ? 1 : 0;
+            System.out.println(m.group(1) + ":" + m.group(2));
+        }
+        try {
+            new DAO.BookDao().updateBook(author, "", is_end, word_count, book_id);
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+    }
+
     private void getChaptersName(Page page) {
+        String book_info_url = page.getHtml().regex("http://www.23wx.com/book/\\d*").toString();
+        System.out.println("book_info_url=" + book_info_url);
+        page.addTargetRequest(book_info_url);
+
         String origin = page.getHtml().regex("<td class=\"L\"><a href=\"http://www.23wx.com/html/\\d*/\\d*/\\d*.html\">.*</a></td>").toString();
         Pattern pattern = Pattern.compile("<td class=.*</a></td>");
-        if (pattern!=null&& !TextUtils.isEmpty(origin)){
+        if (pattern != null && !TextUtils.isEmpty(origin)) {
             Matcher matcher = pattern.matcher(origin);
             while (matcher.find()) {//截取章节信息；
                 i++;
@@ -72,15 +121,30 @@ public class NovelPageProcessor implements PageProcessor {
             }
         }
     }
+
     private void getChapterContent(Page page) {
-        String content = page.getHtml().regex("<dd id=.*>.*</dd>.*<div class=\"adhtml\">").toString();
-        content=content.replaceAll("<dd id=\"contents\">|&nbsp;&nbsp;&nbsp;&nbsp;|<br />&nbsp;&nbsp;&nbsp;&nbsp;|<br />|</dd>|<div class=\"adhtml\">"," ");
-        System.out.println("本章节内容："+content);
-        String url=page.getUrl().toString();
-        System.out.println(url);
+        //<dd><h1>正文 第六章 问话</h1></dd>
+        String chapter_url = page.getUrl().toString();
+        //http://www.23wx.com/html/3/3609/1235222.html
+        Pattern p=Pattern.compile("http://www.23wx.com/html/\\d*/(\\d*)/(\\d*).html");
+        Matcher m=p.matcher(chapter_url);
+        int book_id=0;
+        int chapter_id=0;
+        if (m.find()){
+            book_id=Integer.valueOf(m.group(1));
+            chapter_id=Integer.valueOf(m.group(2));
+        }
+        Html html = page.getHtml();
+        String chapter_name = html.regex("<title>.*-(.*)-顶点小说</title>",1).toString();
+        String content = html.regex("<dd id=.*>.*</dd>.*<div class=\"adhtml\">").toString();
+        content = content.replaceAll("<dd id=\"contents\">|&nbsp;&nbsp;&nbsp;&nbsp;|<br />&nbsp;&nbsp;&nbsp;&nbsp;|<br />|</dd>|<div class=\"adhtml\">", " ");
         try {
-            if (FileUtil.writeTxtFile(content,url)){
-                System.out.println("保存章节成功，url="+url);
+            if (FileUtil.writeTxtFile(content, chapter_url)) {
+                new BookDao().insertChapter(chapter_id,chapter_name,chapter_url,book_id,1);
+                System.out.println("保存章节成功，url=" + chapter_url+chapter_name);
+            }else {
+                new BookDao().insertChapter(chapter_id,chapter_name,chapter_url,book_id,0);
+                System.out.println("保存章节失败，url=" + chapter_url+chapter_name);
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -94,23 +158,18 @@ public class NovelPageProcessor implements PageProcessor {
         String origin_books = page.getHtml().regex("<li><a href=\"http://www.23wx.com/book/.*[下载]</a>.*</a></li>").toString();
         Pattern pattern = Pattern.compile("<li>.*</li>");
         Matcher matcher = pattern.matcher(origin_books);
-        List<String> list = new ArrayList<String>();
         while (matcher.find()) {
-            list.add(matcher.group());
-        }
-        for (String deltail : list) {
             i++;
-//            System.out.println("第" + i + "本书：" + deltail);
-            deliver(page,i, deltail);
+            deliver(page, i, matcher.group());
         }
         if (page.getResultItems().get("name") == null) {
             //skip this page
-            System.out.println("page.getResultItems().get(\"name\")"+page.getResultItems().get("name"));
+            System.out.println("page.getResultItems().get(\"name\")" + page.getResultItems().get("name"));
 //            page.setSkip(true);
         }
     }
 
-    private void deliver(Page page,int number, String detail) {
+    private void deliver(Page page, int number, String detail) {
         Pattern p = Pattern.compile("http://www.23wx.com/html/\\d*/\\d*/");
         Matcher m = p.matcher(detail);
         String book_url = "";
@@ -124,14 +183,22 @@ public class NovelPageProcessor implements PageProcessor {
         System.out.println("id=" + number + ",书名=" + name + ",url=" + book_url);
         page.addTargetRequest(book_url);
         try {
-            new DAO.BookDao().insertBook(number,name,book_url);
+            new DAO.BookDao().insertBook(getStr(book_url, "http://www.23wx.com/html/\\d*/(\\d*)/"), name, book_url);
         } catch (ClassNotFoundException e) {
             e.printStackTrace();
         } catch (SQLException e) {
             e.printStackTrace();
-        }catch (Exception e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    private int getStr(String book_url, String regex) {
+        Pattern p2 = Pattern.compile(regex);//获取title="xxx"的xxx内容；
+        Matcher m2 = p2.matcher(book_url);
+        if (m2.find())
+            return Integer.valueOf(m2.group(1));
+        else return 0;
     }
 
     @Override
@@ -141,7 +208,7 @@ public class NovelPageProcessor implements PageProcessor {
 
     public static void main(String[] args) {
         Spider.create(new NovelPageProcessor())
-                .addUrl("http://www.23wx.com/map/9.html")
+                .addUrl("http://www.23wx.com/html/61/61763/")
                 .thread(5)
                 .run();
     }
